@@ -1,56 +1,55 @@
 import express from 'express';
-import passport from 'passport';
-import { BasicStrategy } from 'passport-http';
+import bodyParser from 'body-parser';
+import expressJWT from 'express-jwt';
+import jwt from 'jsonwebtoken';
+import Users from './Users';
+import quotes from './quotes';
+import { loadSettingsSync } from './helpers';
 
+const settings = loadSettingsSync();
 const app = express();
 
-const quotes = [
-  {
-    author: 'Audrey Hepburn',
-    text: "Nothing is impossible, the word itself says 'I'm possible'!",
-  }, {
-    author: 'Walt Disney',
-    text: "You may not realize it when it happens, but a kick in the teeth may be the best thing in the world for you",
-  }, {
-    author: 'Unknown',
-    text: "Even the greatest was once a beginner. Don't be afraid to take that first step.",
-  }, {
-    author: 'Neale Donald Walsch',
-    text: "You are afraid to die, and you're afraid to live. What a way to exist.",
-  },
-];
-
+app.use(bodyParser.urlencoded({ extended: true }));
+app.use(expressJWT({ secret: settings.jwt.secret }).unless({ path: ['/login'] }));
 
 // Routes
-app.get('/',
-  passport.authenticate('basic', { session: false }),
-  (req, res) => {
-    res.json(quotes);
-  }
-);
+app.get('/quotes', (req, res) => {
+  res.json(quotes);
+});
 
+app.post('/login', (req, res) => {
+  const { username, password } = req.body;
 
-// Basic Auth
-const users = [
-  {
-    username: 'admin',
-    password: '54321',
-  }, {
-    username: 'james',
-    password: '12345',
-  },
-];
+  Users.auth({ username, password })
+    .then((isAuthorized) => {
+      if (!isAuthorized) {
+        res.status(401).send('not authorized');
+        return;
+      }
 
-function basicAuth(username, password, cb) {
-  const user = users.find(u => u.username === username);
-  if (!user || user.password !== password) {
-    // unauthorize
-    return cb(null, false);
-  }
-  return cb(null, user);
-}
+      // if auth, create a token
+      const token = jwt.sign(
+        { username, password },
+        settings.jwt.secret,
+        { expiresInMinutes: 1440 } // 24 hours
+      );
 
-passport.use(new BasicStrategy(basicAuth));
+      // return the information including token as JSON
+      res.json({
+        success: true,
+        token,
+      });
+      return;
+    })
+    .catch((err) => {
+      console.log(err);
+      res.status(500).send('error');
+      return;
+    });
+});
 
 // Start
-app.listen(process.env.PORT || 3000);
+const server = app.listen(settings.port || 3000, () => {
+  const { address, port } = server.address();
+  console.log(`Server listening on http://${address}:${port}`);
+});
