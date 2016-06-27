@@ -31,7 +31,7 @@ app.post('/login', (req, res) => {
       const token = jwt.sign(
         { username, password },
         settings.jwt.secret,
-        { expiresInMinutes: 1440 } // 24 hours
+        { expiresIn: 24 * 60 * 60 } // 24 hours
       );
 
       // return the information including token as JSON
