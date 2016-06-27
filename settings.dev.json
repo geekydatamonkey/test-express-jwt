@@ -1,0 +1,6 @@
+{
+  "port": 3000,
+  "jwt": {
+    "secret": "8385549632210ea6be1da23a69ff7a6382f0c3cc3d93bbacc78eded39262ef63"
+  }
+}
